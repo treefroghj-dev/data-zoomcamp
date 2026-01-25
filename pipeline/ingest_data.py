@@ -75,18 +75,22 @@ def run(pg_user, pg_pass, pg_host, pg_port, pg_db, year, month, chunksize):
         iterator=True,
         chunksize=chunksize,
     )
-
-    create_or_replace_table(engine, df_iter, 'yellow_taxi_data')
+    is_First = True
+    for df_chunk in tqdm(df_iter):
+        print(f'is_First={is_First}')
+        create_or_replace_table(engine, df_chunk, is_First, 'yellow_taxi_data')
+        print(f'Inserted another {chunksize} rows')
 
     green_taxi_prefix = 'https://d37ci6vzurychx.cloudfront.net/trip-data'
     green_taxi_url = f'{green_taxi_prefix}/green_tripdata_2025-11.parquet'
 
     df_green_taxi = pd.read_parquet(green_taxi_url, engine="pyarrow")
     df_green_taxi = df_green_taxi.astype(green_taxi_dtype)
-    create_or_replace_table(engine, df_green_taxi, 'green_taxi_data')
-
-def create_or_replace_table(engine, df, target_table):
+    print(df_green_taxi.shape)
     is_First = True
+    create_or_replace_table(engine, df_green_taxi, is_First, 'green_taxi_data')
+
+def create_or_replace_table(engine, df, is_First, target_table):
     if is_First:
         df.head(0).to_sql(
             name=target_table,
@@ -94,7 +98,7 @@ def create_or_replace_table(engine, df, target_table):
             if_exists='replace'
         )
         is_First = False
-    df.to_sql(
+    return df.to_sql(
         name=target_table,
         con=engine,
         if_exists='append'
