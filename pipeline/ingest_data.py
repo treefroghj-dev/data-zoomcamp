@@ -47,6 +47,13 @@ green_taxi_dtype = {
     "cbd_congestion_fee": "float64"
 }
 
+zone_data_dtype = {
+    "LocationID": "Int64",
+    "Borough": "string",
+    "Zone": "string",
+    "service_zone": "string"
+}
+
 parse_dates = [
     "tpep_pickup_datetime",
     "tpep_dropoff_datetime"
@@ -76,10 +83,23 @@ def run(pg_user, pg_pass, pg_host, pg_port, pg_db, year, month, chunksize):
         chunksize=chunksize,
     )
     is_First = True
-    for df_chunk in tqdm(df_iter):
+    target_table = 'yellow_taxi_data'
+    for df_chunk in tqdm(df_iter, target_table):
         print(f'is_First={is_First}')
-        create_or_replace_table(engine, df_chunk, is_First, 'yellow_taxi_data')
-        print(f'Inserted another {chunksize} rows')
+        # create_or_replace_table(engine, df_chunk, is_First, 'yellow_taxi_data')
+        if is_First:
+            df_chunk.head(0).to_sql(
+                name=target_table,
+                con=engine,
+                if_exists='replace'
+            )
+            is_First = False
+        df_chunk.to_sql(
+            name=target_table,
+            con=engine,
+            if_exists='append'
+        )
+    print('Yellow taxi data ingested successfully.')
 
     green_taxi_prefix = 'https://d37ci6vzurychx.cloudfront.net/trip-data'
     green_taxi_url = f'{green_taxi_prefix}/green_tripdata_2025-11.parquet'
@@ -89,6 +109,16 @@ def run(pg_user, pg_pass, pg_host, pg_port, pg_db, year, month, chunksize):
     print(df_green_taxi.shape)
     is_First = True
     create_or_replace_table(engine, df_green_taxi, is_First, 'green_taxi_data')
+    print('Green taxi data ingested successfully.')
+
+    prefix = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/misc'
+    url=f'{prefix}/taxi_zone_lookup.csv'
+
+    df_zone = pd.read_csv(url, dtype=zone_data_dtype)
+    print(df_zone.shape)
+    is_First = True
+    create_or_replace_table(engine, df_zone, is_First, 'zone_data')
+    print('Zone data ingested successfully.')
 
 def create_or_replace_table(engine, df, is_First, target_table):
     if is_First:
