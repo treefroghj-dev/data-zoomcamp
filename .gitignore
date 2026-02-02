@@ -226,3 +226,8 @@ crash.log
 terraform.rc
 
 /workspaces/data-zoomcamp/terraform/.terraform/providers/registry.terraform.io/hashicorp/google/7.16.0/linux_amd64/terraform-provider-google_v7.16.0_x5
+
+# Prevent committing GCP service account keys
+.gcp/
+**/sa-key*.json
+**/*service-account*.json
